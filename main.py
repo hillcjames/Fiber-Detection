@@ -424,8 +424,9 @@ def displayPlots( ims):
         imshow(im, cmap='Greys_r', interpolation='none', origin='lower', vmin=0, vmax=255,
                 extent=(0, len(im[0]), 0, len(im)), aspect='normal'
                )
-        fName = (os.path.join("autoSavedIms", "displayedIm") + str(int(im[len(im)/2][len(im[0])/2]))
-                            + str(int(im[len(im)/2 + 1][len(im[0])/2 + 1])) + "_" + str(i))
+        fName = (os.path.join("autoSavedIms", "displayedIm") + str(int(np.sum(im))%10000) + "_" + str(i) + ".png")
+        #int(im[len(im)/2][len(im[0])/2]))
+        #    + str(int(im[len(im)/2 + 1][len(im[0])/2 + 1])
         savefig(fName, dpi = 1)
         i += 1
     

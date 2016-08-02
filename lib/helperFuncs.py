@@ -17,8 +17,8 @@ def getAngle(p1, p2):
     return atan((p2[1] - p1[1])/(p2[0] - p1[0]+0.1))
 
 def getOrderedEndPoints(f1, f2):
-    # this returns 2 distances and 2 points, in order: 
-    #   min, max, 2 farthest points (min, max, p3, p4)
+    # this returns 2 distances and 4 points, in order: 
+    #   min, max, 2 farthest points, 2 nearest points (min, max, p3, p4)
     p1, p2 = f1.getEndPoints()
     p3, p4 = f2.getEndPoints()
     dist13 = sqrDist(p1, p3)
@@ -28,7 +28,7 @@ def getOrderedEndPoints(f1, f2):
     
     l = [(dist13, p1, p3), (dist14, p1, p4), (dist23, p2, p3), (dist24, p2, p4)]
     
-    minDist = (100000000000, 0)
+    minDist = (100000000, 0)
     maxDist = (-5, 0)
     for i1 in range(0, 4):
         if l[i1][0] >= maxDist[0]:
@@ -36,9 +36,9 @@ def getOrderedEndPoints(f1, f2):
         if l[i1][0] <= minDist[0]:
             minDist = l[i1]
     
-    p1, p2 = minDist[1:]
-    p3, p4 = maxDist[1:]
-    return minDist[0], maxDist[0], p3, p4, p1, p2
+    p2, p3 = minDist[1:]
+    p1, p4 = maxDist[1:]
+    return minDist[0], maxDist[0], p1, p4, p2, p3
 
 def getConnectingPoints(p1, p2):
     rr, cc, val = line_aa(*p1 + p2)

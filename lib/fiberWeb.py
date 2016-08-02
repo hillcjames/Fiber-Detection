@@ -230,6 +230,7 @@ class FiberWeb(Graph):
     
     '''
     
+    #This finds and connects fiber fragments into longer fibers
     def findFibers(self):
         fiberList = []
         
@@ -297,23 +298,20 @@ class FiberWeb(Graph):
         return fiberList
     
     def getNextPoint(self, node, angleTol):
-        minDist = 1000000
         # angleTol is the tolerance on either side. So half of total range.
-        t0 = getAngle(node.e.pAvg, original.e.pAvg)
+        minDist = 1000000
         # holds the points which lie nearly directly ahead
         aheadPoints = []
         for x in node.links:
-            if x.e == original.e:
-                continue
-            t = getAngle(node.e.pAvg, x.e.pAvg)
-            err = t - t0
+            minDist, maxDist, p1, p4, p2, p3 = getOrderedEndPoints(node.e, x.e)
+            t = getAngle(p1, p4)
+            err = t - node.e.angle
             while err > pi:
                 err -= 2 * pi 
             while err < -pi:
                 err += 2 * pi
-            dist = sqrDist(node.e.pAvg, x.e.pAvg)
-            if abs(err) < angleTol and dist > dist0:
-                aheadPoints.append( (x, abs(err), dist) )
+            if abs(err) < angleTol:
+                aheadPoints.append( (x, abs(err), minDist) )
         if len(aheadPoints) == 0:
             return 0
         aheadPoints = sorted(aheadPoints, key=lambda tup: tup[2])#, reverse=True)
