@@ -9,6 +9,7 @@ class Node(object):
             self.e = e0
             self.links = []
             self.end = False
+            self.visited = False
              
     def getStatus(self):
         return len(self.links)

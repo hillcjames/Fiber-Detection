@@ -28,10 +28,10 @@ class FiberWeb(Graph):
         
         tempDict = {}
         for f in self:
-            print(f.pnts[0], f.pnts[1])
+            print(f.pnts[0], f.pnts[-1])
             n = self[f]
             tempDict[f.pnts[0]] = n
-            tempDict[f.pnts[1]] = n
+            tempDict[f.pnts[-1]] = n
         
         tolerance = pi/8
         
@@ -54,7 +54,7 @@ class FiberWeb(Graph):
                 for r in radiusList:
                     p = (int(p0[0] + (r * np.array([cos(t), sin(t)]))[0]), 
                          int(p0[1] + (r * np.array([cos(t), sin(t)]))[1]) )
-                    # if the point is an enpoint to a fiber, but not of the fiber currently being examined
+                    # if the point is an endpoint to a fiber, but not of the fiber currently being examined
                     
 #                     if p in tempDict:
 #                         print((int)(t*100)/100, r, p, p0, (p in tempDict), (p != tempDict[p0].pnts[0]), (p != tempDict[p0].pnts[1]))
@@ -66,18 +66,21 @@ class FiberWeb(Graph):
 #                             print("\t\t", (int)(t*100)/100, r, p, p0)
                             
 #                             if notCycle:
-                            if self.aligned(tempDict[p0].e, tempDict[p].e, pi/8):
+
+                            if (self.aligned(tempDict[p0].e, tempDict[p].e, pi/32)
+                                and getOrderedEndPoints(tempDict[p0].e, tempDict[p].e)[1] > tempDict[p0].e.length):
 #                                 print("\t\t\t", (int)(t*100)/100, r, p, f0)
                                 Node.link(tempDict[p0], tempDict[p])
                                 self.removeArc(thetaList, t, r)
                                 break
                         else:
                             break
-        print()
-        for f in self:
-            print(str(f.pnts[0]) + " " + str(f.pnts[1]) + " " + str(self[f])[-7:] + "\t" + str(f)[-7:])
-            for lnk in self[f].links: 
-                print("\t", lnk.e.pnts[0], lnk.e.pnts[-1], "\t", str(lnk)[-7:], "\t", str(lnk.e)[-7:] )
+#         print()
+#         for f in self:
+#             print(str(f.pnts[0]) + " " + str(f.pnts[1]) + " " + str(self[f])[-7:] + "\t" + str(f)[-7:])
+#             for lnk in self[f].links: 
+#                 print("\t", lnk.e.pnts[0], lnk.e.pnts[-1], "\t", str(lnk)[-7:], "\t", str(lnk.e)[-7:] )
+
         # you need two, since I broke small cycles in the init,
         # so what would have been
         #     1-{2}, 2-{1, 3, 4}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
@@ -101,17 +104,17 @@ class FiberWeb(Graph):
 #         print("should remove,", node.e.length, self.fw)
         return node.e.length < self.fw * 3
     
-    ''' This finds and connects points into fibers in the pointWeb function:
+    #This finds and connects fiber fragments into longer fibers
     def findFibers(self):
         fiberList = []
         tempFiberList = []
 
         # print all nodes and their links, for debugging
-        for e in self:
-            print("*", e)
-            temp = -1
-            for n in self[e].links:
-                print("\t*", n.e, n.e in self)
+#         for e in self:
+#             print("*", e.getEndPoints())
+#             temp = -1
+#             for n in self[e].links:
+#                 print("\t*", n.e.getEndPoints(), n.e in self)
         
         endList = list(self.ends.copy())
         i = 0
@@ -123,82 +126,87 @@ class FiberWeb(Graph):
                 continue
             
             chain = []
-            
-            prv = self[e]
-            nxt = self[e].links[0]
             chain.append(self[e])
-            print(prv.e)
-            p0 = np.array(chain[0].e)
-            while True:
-                print(nxt.e, len(endList), [n.e for n in nxt.links])
-                temp = -1
-#                 for n in nxt.links:
-#                     print("\t", n.e, sqrDist(nxt.e, n.e))
-                if len(nxt.links) == 2:
-                    # this ends the fiber if it has too high a bend, and the points being examined
-                    # aren't too close.
-                    prvP = np.array(prv.e)
-                    nxtP = np.array(nxt.e)
-#                     print(p0 - prvP, p0 - nxtP, p0, prvP, nxtP, getAngle(p0 - prvP, nxtP - prvP), sqrDist(chain[0].e, nxt.e), 3*self.fw)
-                    if ((sqrDist(chain[0].e, prv.e) > 3*self.fw or chain[0].e == prv.e)
-                        and sqrDist(chain[0].e, nxt.e) > 3*self.fw
-                        and getAngle(prvP - p0, nxtP - p0) < 6*pi/8):
-#                         and getAngle(p0 - prvP, nxtP - prvP) < 6*pi/8):
+            if len(self[e].links) > 0:
+                prv = self[e]
+                nxt = self[e].links[0]
+#                 print(prv.e.getEndPoints())
+                p0 = np.array(chain[0].e)
+                while True:
+#                     print(nxt.e.getEndPoints(), len(endList), [n.e.getEndPoints() for n in nxt.links])
+                    temp = -1
+    #                 for n in nxt.links:
+    #                     print("\t", n.e, sqrDist(nxt.e, n.e))
+                    if len(nxt.links) == 2:
+                        # this ends the fiber if it has too high a bend, and the points being examined
+                        # aren't too close.
+    #                     print(p0 - prvP, p0 - nxtP, p0, prvP, nxtP, getAngle(p0 - prvP, nxtP - prvP), sqrDist(chain[0].e, nxt.e), 3*self.fw)
+                        ordOrigPrv = getOrderedEndPoints(chain[0].e, prv.e)
+                        ordOrignxt = getOrderedEndPoints(chain[0].e, nxt.e)
+                        if ((ordOrigPrv[0] > 3*self.fw or chain[0].e == prv.e)
+                            and (ordOrignxt[0] > 3*self.fw)):
+    #                         and getAngle(prvP - p0, nxtP - p0) < 6*pi/8):
+    #                         and getAngle(p0 - prvP, nxtP - prvP) < 6*pi/8):
+                            chain.append(nxt)
+                            if len(nxt.links) == 1 and nxt.e not in self.ends:
+                                self.ends[nxt.e] = nxt
+                                endList.append(nxt.e)
+#                             print(1)
+                            break
+                        
+                        
+                        if nxt.links[0] != prv:
+                            temp = nxt.links[0]
+                        else: 
+                            temp = nxt.links[1]
+                    elif  len(nxt.links) == 1:
+                        chain.append(nxt)
+                        if nxt.e not in self.ends:
+                            self.ends[nxt.e] = nxt
+                            endList.append(nxt.e)
+    #                     print(2)
+                        break
+                    else: #intersection
+                        nxP = self.getNextPoint(nxt, chain, 5*pi/16)
+                        if nxP != 0:
+#                             print(nxP.e.getEndPoints())
+                            temp = nxP
+                    
+                    if temp == -1:
                         chain.append(nxt)
                         if len(nxt.links) == 1 and nxt.e not in self.ends:
                             self.ends[nxt.e] = nxt
                             endList.append(nxt.e)
-#                         print(1)
+    #                     print(3)
                         break
                     
+#                     print(prv.e.getEndPoints(), nxt.e.getEndPoints(), temp.e.getEndPoints())
+                    prv = nxt
+                    nxt = temp
+#                     print("-----")
+    #                 print(nxt)
+                    chain.append(nxt)
                     
-                    if nxt.links[0] != prv:
-                        temp = nxt.links[0]
-                    else: 
-                        temp = nxt.links[1]
-                elif  len(nxt.links) == 1:
-                    chain.append(nxt)
-                    if nxt.e not in self.ends:
-                        self.ends[nxt.e] = nxt
-                        endList.append(nxt.e)
-#                     print(2)
-                    break
-                else: #intersection
-                    nxP = self.getNextPoint(nxt, chain[0], 5*pi/16)
-                    print(nxP)
-                    if nxP != 0:
-                        temp = nxP
-                        
-                if temp == -1:
-                    chain.append(nxt)
-                    if len(nxt.links) == 1 and nxt.e not in self.ends:
-                        self.ends[nxt.e] = nxt
-                        endList.append(nxt.e)
-#                     print(3)
-                    break
-                
-                prv = nxt
-                nxt = temp
-#                 print(nxt)
-                chain.append(nxt)
-                
-#                 if nxt.e not in self.ends:
-#                     break
-                
+    #                 if nxt.e not in self.ends:
+    #                     break
+                    
             chain0 = []
             for p in chain:
                 chain0.append(p.e)
 #             print(chain0)
             Graph.unlinkChain(chain)
+            #Could improve speed by making it just prune the parts
+            #that changed. That would have to be recursive though. Might be worth it.
             self.prune(endList)
             #don't prune the whole thing, just prune the points that had been touched
 #             self.pruneChain()
             
-            
-            f = Fiber(chain0, self.fw)
+            fPoints = getOrderedEndPoints(chain0[0], chain0[-1])[2:4]
+#             print("fPoints: ", fPoints)
+            f = Fiber(fPoints, self.fw)
             if f.length > 4:
                 tempFiberList.append(f)
-        
+#             print("---------------------------------")
         # this ensures duplicate fibers aren't saved
         tempDict = {}
         for f in tempFiberList:
@@ -228,81 +236,124 @@ class FiberWeb(Graph):
         
         return fiberList
     
-    '''
     
-    #This finds and connects fiber fragments into longer fibers
-    def findFibers(self):
-        fiberList = []
+#     #This finds and connects fiber fragments into longer fibers
+#     def findFibers(self):
+#         fiberList = []
+#         
+# #         print("fibers")
+#         for e in self.ends.copy():
+# #             print("e: ", e)
+#             if not e in self.ends or not e in self:
+#                 continue
+#             if  len(self[e].links) == 0:
+#                 fiberList.append(self[e].e)
+#                 continue
+#                 
+#             chain = []
+#             
+#             prv = self[e]
+#             nxt = self[e].links[0]
+#             chain.append(self[e])
+#             
+#             while True:
+#                 temp = -1
+# #                 print(nxt.p, len(nxt.links))
+#                 if len(nxt.links) == 2:
+#                     nxP = self.getNextPoint(nxt, prv, pi/8)
+#                     if nxP != 0:
+#                         if nxt.links[0] != prv:
+#                             temp = nxt.links[0]
+#                         else: 
+#                             temp = nxt.links[1]
+#                     else:
+#                         break
+#                 elif  len(nxt.links) == 1:
+#                     chain.append(nxt)
+#                     break
+#                 else: #intersection
+#                     nxP = self.getNextPoint(nxt, prv, pi/8)
+#                     if nxP != 0:
+#                         temp = nxP
+#                         
+#                 if temp == -1:
+#                     chain.append(nxt)
+#                     break
+#                 
+#                 prv = nxt
+#                 nxt = temp
+# #                 print(nxt)
+#                 chain.append(nxt)
+#                 
+#                 if nxt.e not in self.ends:
+#                     break
+#                 
+#             chain0 = []
+#             for nF in chain:
+#                 chain0.append(nF.e)
+# #             print(chain0)
+#             Graph.unlinkChain(chain)
+#             self.prune()
+#             #don't prune the whole thing, just prune the points that had been touched
+# #             self.pruneChain()
+#             
+#             fPoints = getOrderedEndPoints(chain0[0], chain0[-1])[2:4]
+#             print(fPoints)
+#             f = Fiber(fPoints, self.fw)
+#             if f.length > 4:
+#                 fiberList.append(f)
+#         return fiberList
+    
+    def prune(self, endList = None):
+        pToDelete = []
+        pToCut = []
+        nToEnds = []
+        for p0 in self:
+            nodePoint = self[p0]
+            if len(nodePoint.links) < 1:
+                if self.shouldRemove(nodePoint):
+                    pToDelete.append(nodePoint.e)
+                
+            if (len(nodePoint.links) == 2) and self.inLine(nodePoint.e, nodePoint.links[0].e, nodePoint.links[1].e):
+                pToCut.append(nodePoint.e)
+    
+            if len(nodePoint.links) == 1:
+                nToEnds.append(nodePoint)
+                
+        for p in pToDelete:
+            self[p].visited = True
+#             if p in self.ends:
+#                 self.ends.remove(self[p])
+            if p in self.ends:
+                del self.ends[p]
+            if endList:
+                if p in endList:
+                    endList.remove(p)
+            del self[p]
+            
+        for p in pToCut:
+            if (len(self[p].links) == 2):
+#                 print("....", p, len(self[p].links))
+#                 self[p].printLinks(",,,,")
+                Node.cutOut(self[p])
+                del self[p]
         
-#         print("fibers")
-        for e in self.ends.copy():
-#             print("e: ", e)
-            if not e in self.ends or not e in self:
-                continue
-            if  len(self[e].links) == 0:
-                fiberList.append(self[e].e)
-                continue
-                
-            chain = []
-            
-            prv = self[e]
-            nxt = self[e].links[0]
-            chain.append(self[e])
-            
-            while True:
-                temp = -1
-#                 print(nxt.p, len(nxt.links))
-                if len(nxt.links) == 2:
-                    nxP = self.getNextPoint(nxt, prv, pi/8)
-                    if nxP != 0:
-                        if nxt.links[0] != prv:
-                            temp = nxt.links[0]
-                        else: 
-                            temp = nxt.links[1]
-                    else:
-                        break
-                elif  len(nxt.links) == 1:
-                    chain.append(nxt)
-                    break
-                else: #intersection
-                    nxP = self.getNextPoint(nxt, prv, pi/8)
-                    if nxP != 0:
-                        temp = nxP
-                        
-                if temp == -1:
-                    chain.append(nxt)
-                    break
-                
-                prv = nxt
-                nxt = temp
-#                 print(nxt)
-                chain.append(nxt)
-                
-                if nxt.e not in self.ends:
-                    break
-                
-            chain0 = []
-            for nF in chain:
-                chain0.append(nF.e)
-#             print(chain0)
-            Graph.unlinkChain(chain)
-            self.prune()
-            #don't prune the whole thing, just prune the points that had been touched
-#             self.pruneChain()
-            
-            fPoints = getOrderedEndPoints(chain0[0], chain0[-1])[2:4]
-            print(fPoints)
-            f = Fiber(fPoints, self.fw)
-            if f.length > 4:
-                fiberList.append(f)
-        return fiberList
+        if endList != None:
+            for n in nToEnds:
+                # should I do this? Is there a situation where a node will,
+                # after other nodes are unlinked around it, still have a single link and yet want to be deleted?
+                if n.e not in pToDelete:
+                    endList.append(n.e)
+                    self.ends[n.e] = n
     
-    def getNextPoint(self, node, angleTol):
+    def getNextPoint(self, node, curChain, angleTol):
         # angleTol is the tolerance on either side. So half of total range.
         minDist = 1000000
         # holds the points which lie nearly directly ahead
         aheadPoints = []
         for x in node.links:
+            if x in curChain:
+                continue
             minDist, maxDist, p1, p4, p2, p3 = getOrderedEndPoints(node.e, x.e)
             t = getAngle(p1, p4)
             err = t - node.e.angle
@@ -315,7 +366,10 @@ class FiberWeb(Graph):
         if len(aheadPoints) == 0:
             return 0
         aheadPoints = sorted(aheadPoints, key=lambda tup: tup[2])#, reverse=True)
-        print(aheadPoints)
+        aheadStr = ""
+        for p in aheadPoints:
+            aheadStr += str(p[0].e.getEndPoints()) + " " + str(p[1]) + " " + str(p[2]) + " | " 
+        print("ahStr", aheadStr, aheadPoints[0])
         return aheadPoints[0][0]
 
     def inLine(self, f0, f1, f2):
@@ -328,6 +382,8 @@ class FiberWeb(Graph):
         
         t1 = getAngle(f0.pAvg, p1)
         t2 = getAngle(f0.pAvg, p2)
+        if ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol)):
+            print(p1, p2, f0.pAvg, getAngleDiff(f0.angle, t1), getAngleDiff(f0.angle, t2), tol)
         return ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol))
     
     @staticmethod
@@ -353,7 +409,9 @@ class FiberWeb(Graph):
                 f3 = Fiber([far1, far2], fiberW)
                 f4 = Fiber([near1, near2], fiberW)
                 aligned = abs(avgAngle - f3.angle) < angleTol
-                aligned = aligned and (abs(avgAngle - f4.angle) < angleTol)
+                # I think I don't need this? Its removal improves all output in my test, so
+                # its removal should help more often than it hurts
+#                 aligned = aligned and (abs(avgAngle - f4.angle) < angleTol)
                 
                 if endpointsNear and sameSlope and aligned and (newLength > f1.length) and (newLength > f2.length):
                     fiberList.remove(f2)
@@ -365,4 +423,9 @@ class FiberWeb(Graph):
             i1 += 1
         return fiberList
 
+
+
+if __name__ == "__main__":
+    from main import cPythonStuff
+    cPythonStuff()
 

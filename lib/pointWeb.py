@@ -10,7 +10,7 @@ from scipy import spatial
 from lib.graph import Graph
 from lib.fiber import Fiber
 from lib.node import Node
-from lib.helperFuncs import getAngle, getAngleDiff, sqrDist
+from lib.helperFuncs import getAngle, getAngleDiff, sqrDist, intTup
 
 class PointWeb(Graph):
     
@@ -76,8 +76,6 @@ class PointWeb(Graph):
                                 break
                         else:
                             break
-
-
         
         # you need two, since I broke small cycles in the init,
         # so what would have been
@@ -112,11 +110,11 @@ class PointWeb(Graph):
         self.prune()
         
         ''' combine adjacent nodes'''
-        for e in self:
-            print("@@", e)
-            temp = -1
-            for n in self[e].links:
-                print("\t@@", n.e, n.e in self)
+#         for e in self:
+#             print("@@", e)
+#             temp = -1
+#             for n in self[e].links:
+#                 print("\t@@", n.e, n.e in self)
 
         for curPoint in self.copy():
             if not curPoint in self:
@@ -156,11 +154,11 @@ class PointWeb(Graph):
         '''
         print all nodes and their links, for debugging
         '''
-        for e in self:
-            print("*", e)
-            temp = -1
-            for n in self[e].links:
-                print("\t*", n.e, n.e in self)
+#         for e in self:
+#             print("*", e)
+#             temp = -1
+#             for n in self[e].links:
+#                 print("\t*", n.e, n.e in self)
         
         endList = list(self.ends.copy())
         i = 0
@@ -176,13 +174,13 @@ class PointWeb(Graph):
             prv = self[e]
             nxt = self[e].links[0]
             chain.append(self[e])
-            print(prv.e)
+            print("@",prv.e)
             p0 = np.array(chain[0].e)
             while True:
-                print(nxt.e, len(endList), [n.e for n in nxt.links])
+                print("*", nxt.e, len(endList), [n.e for n in nxt.links])
                 temp = -1
 #                 for n in nxt.links:
-#                     print("\t", n.e, sqrDist(nxt.e, n.e))
+#                     print("\t*", n.e, sqrDist(nxt.e, n.e))
                 if len(nxt.links) == 2:
                     # this ends the fiber if it has too high a bend, and the points being examined
                     # aren't too close.
@@ -194,28 +192,68 @@ class PointWeb(Graph):
                         and getAngle(prvP - p0, nxtP - p0) < 6*pi/8):
 #                         and getAngle(p0 - prvP, nxtP - prvP) < 6*pi/8):
                         chain.append(nxt)
+                        nxt.visited = True
                         if len(nxt.links) == 1 and nxt.e not in self.ends:
                             self.ends[nxt.e] = nxt
                             endList.append(nxt.e)
-#                         print(1)
+                            print("1*")
                         break
                     
                     
                     if nxt.links[0] != prv:
                         temp = nxt.links[0]
-                    else: 
+                    else:
                         temp = nxt.links[1]
+                    
+                    if temp.visited:
+                        # TODO maybe condense small cycles into a single point
+                        # instead of just not letting it connect
+                        Node.unlink(temp, nxt)
+                        break
+                        smallCycleLength = min([6, len(chain)])
+                        
+                        cycle = []
+                        cycleFound = False
+                        #find cycle
+                        for i0 in range(smallCycleLength - 1, 0, -1):
+                            n = chain[i0]
+                            if n != temp:
+                                cycle.append(n)
+                            else:
+                                cycleFound = True
+                                break
+                        #if cycle is small, remove those nodes from:
+                        #chain, ends, and graph; everything.
+                        # save all of their links that aren't to each other,
+                        # and add a new node at their center with all their links
+                        if cycleFound:
+                            self.unlinkChain(cycle)
+                            links = []
+                            pAvg = np.array((0,0))
+                            for n in cycle:
+                                pAvg += np.array(n.e)
+                                for l in n.links.copy():
+                                    if l not in links:
+                                        links.append(l)
+                                    Node.unlink(n, l)
+                                    
+                            pAvg /= len(cycle)
+                            newNode = Node(intTup(pAvg))
+                            for l in links:
+                                Node.link(newNode, l)
+                        break
+                    
                 elif  len(nxt.links) == 1:
                     chain.append(nxt)
                     if nxt.e not in self.ends:
                         self.ends[nxt.e] = nxt
                         endList.append(nxt.e)
-#                     print(2)
+                        print("2*")
                     break
                 else: #intersection
                     nxP = self.getNextPoint(nxt, chain[0], 5*pi/16)
-                    print(nxP)
                     if nxP != 0:
+#                         print("\t#", nxP.e)
                         temp = nxP
                         
                 if temp == -1:
@@ -223,13 +261,17 @@ class PointWeb(Graph):
                     if len(nxt.links) == 1 and nxt.e not in self.ends:
                         self.ends[nxt.e] = nxt
                         endList.append(nxt.e)
-#                     print(3)
+                        print("3*")
+                    break
+                if prv == nxt:
+                    print("previous point same as next, at:", prv)
                     break
                 
                 prv = nxt
                 nxt = temp
 #                 print(nxt)
                 chain.append(nxt)
+                nxt.visited = True
                 
 #                 if nxt.e not in self.ends:
 #                     break
@@ -237,6 +279,7 @@ class PointWeb(Graph):
             chain0 = []
             for p in chain:
                 chain0.append(p.e)
+                p.visited = False
 #             print(chain0)
             Graph.unlinkChain(chain)
             self.prune(endList)
@@ -297,6 +340,7 @@ class PointWeb(Graph):
         return best[0]
 
     def getNextPoint(self, node, original, angleTol):
+        print("\t", original.e, node.e)
         dist0 = sqrDist(node.e, original.e)
         # angleTol is the tolerance on either side. So half of total range.
         t0 = getAngle(original.e, node.e)
@@ -317,7 +361,7 @@ class PointWeb(Graph):
         if len(aheadPoints) == 0:
             return 0
         aheadPoints = sorted(aheadPoints, key=lambda tup: tup[2])#, reverse=True)
-        print(aheadPoints)
+        print("\t--", aheadPoints[0][0].e, node.e)
         return aheadPoints[0][0]
     
     def inLine(self, p0, p1, p2):

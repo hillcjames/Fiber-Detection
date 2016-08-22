@@ -424,7 +424,7 @@ def displayPlots( ims):
         imshow(im, cmap='Greys_r', interpolation='none', origin='lower', vmin=0, vmax=255,
                 extent=(0, len(im[0]), 0, len(im)), aspect='normal'
                )
-        fName = (os.path.join("autoSavedIms", "displayedIm") + str(int(np.sum(im))%10000) + "_" + str(i) + ".png")
+        fName = (os.path.join("autoSavedIms", "displayedIm") + str(int(np.sum(im))%1000) + "_" + str(i) + ".png")
         #int(im[len(im)/2][len(im[0])/2]))
         #    + str(int(im[len(im)/2 + 1][len(im[0])/2 + 1])
         savefig(fName, dpi = 1)
@@ -609,6 +609,7 @@ def tempGraphStuff(im0, distanceIm, l, fw):
     
     im1 = pWeb.im.copy()
     im2 = pWeb.im.copy()
+    im3 = pWeb.im.copy()
     
     pWeb.drawGraph()
     
@@ -617,11 +618,19 @@ def tempGraphStuff(im0, distanceIm, l, fw):
 #     displayPlots([pWeb.im])
 #     exit()
     
-#     fibers1 = FiberWeb.fixBrokenFibers(fibers1, 3*fw, pi/8)
+    FiberWeb.fixBrokenFibers(fibers1, 3*fw, pi/8)
     
 #     fWeb = FiberWeb(distanceIm, fibers1, 5*fw, fw)
-#     
+      
 #     fibers2 = fWeb.findFibers()
+#     drawFibers(im3, list(fWeb))
+#     for f in fWeb:
+#         # draw links
+#         for n in fWeb[f].links:
+#             p1, p2 = getOrderedEndPoints(f, n.e)[4:6]
+#             c = randint(40,80)
+#             for p in getConnectingPoints(p1, p2):
+#                 im3[p] = c
 
     drawFibers(im1, fibers1)
 #     drawFibers(im2, fibers2)
@@ -629,6 +638,7 @@ def tempGraphStuff(im0, distanceIm, l, fw):
     
     print("Displaying plots")
     displayPlots([pWeb.im, im1])
+#     displayPlots([pWeb.im, im1, im2, im3])
 #     displayPlots([im0, pWeb.im, distanceIm*128, im1, im2])
     print("Done displaying plots")
     
@@ -675,7 +685,7 @@ def filterImage( im0, fw):
     temp3 = toBinImg(temp2 - ndimage.convolve(temp2, f3)//2)
     final = toBinImg(temp3 - ((ndimage.convolve(temp3, f4)%4) + 1 )//4)
 #     ims = [ im0, local_maxi * 64, temp3*64, final*64 ]
-#     displayPlots([(im > ndarray.mean(im) + ndarray.std(im))*128 + final * 128])
+#     displayPlots([(im > ndarray.mean(im) + ndarray.std(im))*64 + final * 128])
 #     return
     maxPoints = np.nonzero(final)
      
@@ -700,7 +710,6 @@ def drawLine(im, p1, p2):
             im[(int(y), int(x))] = 255
 
 def cPythonStuff():
-    print("her1e")
 #     call(["python3", "setup.py", "build_ext", "--inplace"])
 #     im0 = fiberBox((20, 20), (10, 10), 3*pi/4, 5)
 #     im0 = fiberBox((40, 20), (10, 15), 4*pi/7, 5)
@@ -719,22 +728,14 @@ def cPythonStuff():
 #     displayPlots([im0])
 #     exit()
     filterImage(im0, 5)
-    print("here")
     return
-#     im = np.zeros((20,20))
-#  
-#     p1 = (1, 1.01)
-#     p2 = (19, 19)
-#     
-#     drawLine(im, p1, p2)
-#     
-#     displayPlots([im])
-    
+
     im0 = np.array( Image.open("Images/smallTest2.jpg") )
     im0 = ndimage.gaussian_filter(im0.copy(), sigma=3)
     filterImage(im0, 10)
-    
+    print("here")
     return
+
 #     x, y = np.indices((5, 5))
 #     x1, y1, = 2, 2
 #     r1 = 1.2

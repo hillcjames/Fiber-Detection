@@ -43,20 +43,22 @@ class Graph(dict):
                 self.ends[p] = self[p]
 
     
-    def prune(self, endList = None):
+    def prune(self, endList = []):
         pToDelete = []
         pToCut = []
         nToEnds = []
         for p0 in self:
             nodePoint = self[p0]
             if len(nodePoint.links) < 1:
-                if self.shouldRemove(nodePoint):
+                if self.shouldRemove(nodePoint): # currently returns true
                     pToDelete.append(nodePoint.e)
                 
             if (len(nodePoint.links) == 2) and self.inLine(nodePoint.e, nodePoint.links[0].e, nodePoint.links[1].e):
                 pToCut.append(nodePoint.e)
     
-            if len(nodePoint.links) == 1:
+            if (len(nodePoint.links) == 1
+                    and nodePoint.e not in self.ends
+                    and nodePoint.e not in endList):
                 nToEnds.append(nodePoint)
                 
         for p in pToDelete:
@@ -65,6 +67,8 @@ class Graph(dict):
 #                 self.ends.remove(self[p])
             if p in self.ends:
                 del self.ends[p]
+            if p in endList:
+                endList.remove(p)
             del self[p]
             
         for p in pToCut:
@@ -74,13 +78,16 @@ class Graph(dict):
                 Node.cutOut(self[p])
                 del self[p]
         
-        if endList != None:
+        if len(endList) > 0:
+            string = "4 "
             for n in nToEnds:
+                string += str(n.e) + " " + str(n.e not in pToDelete)
                 # should I do this? Is there a situation where a node will,
                 # after other nodes are unlinked around it, still have a single link and yet want to be deleted?
                 if n.e not in pToDelete:
                     endList.append(n.e)
                     self.ends[n.e] = n
+            print(string)
             
     def shouldRemove(self, node):
         return True
