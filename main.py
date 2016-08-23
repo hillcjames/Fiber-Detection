@@ -727,8 +727,8 @@ def cPythonStuff():
     im0 = mergeIms(im5, im6)
 #     displayPlots([im0])
 #     exit()
-    filterImage(im0, 5)
-    return
+#     filterImage(im0, 5)
+#     return
 
     im0 = np.array( Image.open("Images/smallTest2.jpg") )
     im0 = ndimage.gaussian_filter(im0.copy(), sigma=3)

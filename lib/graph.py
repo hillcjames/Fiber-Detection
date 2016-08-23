@@ -67,8 +67,8 @@ class Graph(dict):
 #                 self.ends.remove(self[p])
             if p in self.ends:
                 del self.ends[p]
-            if p in endList:
-                endList.remove(p)
+#             if p in endList:    #NOT needed and introduces a bug, since an index to the list will no longer lead to the same value, while iterating over the list
+#                 endList.remove(p)
             del self[p]
             
         for p in pToCut:
@@ -79,15 +79,15 @@ class Graph(dict):
                 del self[p]
         
         if len(endList) > 0:
-            string = "4 "
+#             string = "4 "
             for n in nToEnds:
-                string += str(n.e) + " " + str(n.e not in pToDelete)
+#                 string += str(n.e) + " " + str(n.e not in pToDelete)
                 # should I do this? Is there a situation where a node will,
                 # after other nodes are unlinked around it, still have a single link and yet want to be deleted?
                 if n.e not in pToDelete:
                     endList.append(n.e)
                     self.ends[n.e] = n
-            print(string)
+#             print(string)
             
     def shouldRemove(self, node):
         return True

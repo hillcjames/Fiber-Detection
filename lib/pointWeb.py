@@ -5,7 +5,6 @@ Created on May 14, 2016
 '''
 import numpy as np
 from math import pi, sqrt, sin, cos
-from scipy import spatial
 
 from lib.graph import Graph
 from lib.fiber import Fiber
@@ -174,7 +173,7 @@ class PointWeb(Graph):
             prv = self[e]
             nxt = self[e].links[0]
             chain.append(self[e])
-            print("@",prv.e)
+#             print("@",prv.e)
             p0 = np.array(chain[0].e)
             while True:
                 print("*", nxt.e, len(endList), [n.e for n in nxt.links])
@@ -196,7 +195,7 @@ class PointWeb(Graph):
                         if len(nxt.links) == 1 and nxt.e not in self.ends:
                             self.ends[nxt.e] = nxt
                             endList.append(nxt.e)
-                            print("1*")
+#                             print("1*")
                         break
                     
                     
@@ -248,7 +247,7 @@ class PointWeb(Graph):
                     if nxt.e not in self.ends:
                         self.ends[nxt.e] = nxt
                         endList.append(nxt.e)
-                        print("2*")
+#                         print("2*")
                     break
                 else: #intersection
                     nxP = self.getNextPoint(nxt, chain[0], 5*pi/16)
@@ -261,7 +260,7 @@ class PointWeb(Graph):
                     if len(nxt.links) == 1 and nxt.e not in self.ends:
                         self.ends[nxt.e] = nxt
                         endList.append(nxt.e)
-                        print("3*")
+#                         print("3*")
                     break
                 if prv == nxt:
                     print("previous point same as next, at:", prv)
@@ -340,7 +339,7 @@ class PointWeb(Graph):
         return best[0]
 
     def getNextPoint(self, node, original, angleTol):
-        print("\t", original.e, node.e)
+#         print("\t", original.e, node.e)
         dist0 = sqrDist(node.e, original.e)
         # angleTol is the tolerance on either side. So half of total range.
         t0 = getAngle(original.e, node.e)
@@ -361,7 +360,7 @@ class PointWeb(Graph):
         if len(aheadPoints) == 0:
             return 0
         aheadPoints = sorted(aheadPoints, key=lambda tup: tup[2])#, reverse=True)
-        print("\t--", aheadPoints[0][0].e, node.e)
+#         print("\t--", aheadPoints[0][0].e, node.e)
         return aheadPoints[0][0]
     
     def inLine(self, p0, p1, p2):
