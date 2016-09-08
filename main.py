@@ -24,12 +24,9 @@ Assumes:
 
 from PIL import Image, ImageDraw
 import numpy as np
-from scipy import dot, array
 from math import cos, sin, pi, sqrt, ceil, atan
 import datetime
 import os
-from json.decoder import NaN
-import timeit
 
 
 from scipy import ndimage, misc
@@ -206,6 +203,63 @@ def circleArray( w ):
             if dSqr <= r**2:
                 a[x, y] = 0.5
     
+    return a
+
+def circleIntersectFilter( w ):
+    # with fiber intersection average width w
+    try:
+        aW, aH = (int)(1.5 * w), (int)(1.5 * w)
+        # with fiber width w
+        a = np.zeros((aW, aH))
+        
+        # radial distance to the outer edge of the negative region
+        
+        outerRing = (int)(1.4/2 * w)
+        
+        # radial distance to the outer edge of the dim region
+        innerRing = (int)(0.8/2 * w)
+         
+        # radial distance to the outer edge of the central all-light region
+        centerRing = (int)(0.6/2*w)
+         
+        edgePixelValue = 1
+        centerPixelVlaue = 8
+                
+        totalPositiveAreaValue = pi * ( innerRing**2 * edgePixelValue
+                                        + centerRing**2 * (centerPixelVlaue - edgePixelValue) )
+        
+        outsideArea = pi * (outerRing**2 - innerRing**2)
+        
+        outsidePixelValue = -1 * (int)(totalPositiveAreaValue / outsideArea + 1)
+        
+        print("outsidePixelValue:", totalPositiveAreaValue, outsideArea, outsidePixelValue)
+
+        for t0 in range(0, 360):
+            t = t0 * pi/180
+            for r in range(0, centerRing):
+                i = aW/2 + int(r * cos(t))
+                j = aH/2 + r* sin(t)
+                a[(j, i)] = centerPixelVlaue
+                print(r, 0, centerRing)
+            
+            print("*")
+            for r in range(centerRing, innerRing):
+                i = aW/2 + int(r * cos(t))
+                j = aH/2 + int(r * sin(t))
+                a[(j, i)] = edgePixelValue
+                print(r, centerRing, innerRing)
+            
+            print("*")
+            for r in range(innerRing, outerRing):
+                i = aW/2 + int(r * cos(t))
+                j = aH/2 + int(r* sin(t))
+                a[(j, i)] = outsidePixelValue
+                print(r, innerRing, outerRing)
+            
+    except Exception:
+        print("Width value too low.")
+        raise
+    a -= ndarray.mean(a)
     return a
 
 def crossEdgeArray( w ):
@@ -429,7 +483,9 @@ def displayPlots( ims):
         #    + str(int(im[len(im)/2 + 1][len(im[0])/2 + 1])
         savefig(fName, dpi = 1)
         i += 1
-    
+
+
+
 def findPath(im, p1, p2):
     return True
 #     print(ndarray.mean(im), ndarray.std(im))
@@ -572,20 +628,20 @@ def binFibers(fiberSegments, imW, imH):
 #     for y in bin_means:
 #         print(y)
 
-def drawFibers(im, fibers):
+def drawFibers(im, fibers, col = (55, 255)):
     for f in fibers:
 #         print(f, f.pnts[0], f.pnts[len(f.pnts) - 1])
         p1 = f.pnts[0]
         p2 = f.pnts[-1]
         
         rr, cc, val = line_aa(*p1 + p2)
-        im[rr, cc] = 55  + randint(0, 1)
+        im[rr, cc] = col[0]  + randint(0, 1)
         
     for f in fibers:
         p1 = f.pnts[0]
         p2 = f.pnts[-1]
-        im[p1] = 255
-        im[p2] = 255
+        im[p1] = col[1]
+        im[p2] = col[1]
 
 def tempGraphStuff(im0, distanceIm, l, fw):
 #     fw = 2
@@ -594,7 +650,9 @@ def tempGraphStuff(im0, distanceIm, l, fw):
 #     im = np.zeros((10, 10))
 
     print("About to create graph")
-    pWeb = PointWeb(distanceIm, l, 1.4*sqrt(5), fw) # 4*sqrt(5) is about 8.9
+    maxDist = 1.4*sqrt(5)
+    maxDist = 3
+    pWeb = PointWeb(distanceIm, l, maxDist, fw)
     
     print("...Done creating graph")
     
@@ -606,39 +664,43 @@ def tempGraphStuff(im0, distanceIm, l, fw):
 #             rr, cc = line_aa(*p1 + p2.p)[:2]
 #             im2[rr, cc] = 55  + randint(0, 1)
     
-    
     im1 = pWeb.im.copy()
-    im2 = pWeb.im.copy()
-    im3 = pWeb.im.copy()
     
     pWeb.drawGraph()
     
     
     fibers1 = pWeb.findFibers()
-#     displayPlots([pWeb.im])
-#     exit()
     
     FiberWeb.fixBrokenFibers(fibers1, 3*fw, pi/8)
     
-#     fWeb = FiberWeb(distanceIm, fibers1, 5*fw, fw)
-      
-#     fibers2 = fWeb.findFibers()
-#     drawFibers(im3, list(fWeb))
-#     for f in fWeb:
-#         # draw links
-#         for n in fWeb[f].links:
-#             p1, p2 = getOrderedEndPoints(f, n.e)[4:6]
-#             c = randint(40,80)
-#             for p in getConnectingPoints(p1, p2):
-#                 im3[p] = c
-
     drawFibers(im1, fibers1)
-#     drawFibers(im2, fibers2)
+    
+#     displayPlots([pWeb.im, im1])
+#     exit()
+    
+    maxDistFactor = 8 #20
+    fWeb = FiberWeb(distanceIm, fibers1, maxDistFactor*fw, fw)
+    fWeb.drawGraph()
+    im2 = fWeb.im.copy()
+    im3 = fWeb.im.copy()
+    
+    fibers2 = fWeb.findFibers()
+    drawFibers(im3, list(fWeb))
+    for f in fWeb:
+        # draw links
+        for n in fWeb[f].links:
+            p1, p2 = getOrderedEndPoints(f, n.e)[4:6]
+            c = randint(40,80)
+            for p in getConnectingPoints(p1, p2):
+                im3[p] = c
+
+    drawFibers(im2, fibers2)
 
     
     print("Displaying plots")
-    displayPlots([pWeb.im, im1])
-#     displayPlots([pWeb.im, im1, im2, im3])
+#     displayPlots([pWeb.im, im1])
+#     displayPlots([im1, im2])
+    displayPlots([pWeb.im, im1, im2, im3])
 #     displayPlots([im0, pWeb.im, distanceIm*128, im1, im2])
     print("Done displaying plots")
     
@@ -650,6 +712,15 @@ def tempGraphStuff(im0, distanceIm, l, fw):
 
 
 def filterImage( im0, fw):
+#     filt0 = circleIntersectFilter(15)
+#     filt = filt0 - ndarray.min(filt0)
+#     filt = filt*(200/ndarray.max(filt)) + 50
+#     filteredIm = ndimage.convolve(im0, filt0)
+#     filteredIm -= ndarray.min(filteredIm)
+#     filteredIm = 256 * filteredIm / ndarray.max(filteredIm)
+#     print(ndarray.max(filt), ndarray.min(filt), ndarray.max(filteredIm), ndarray.min(filteredIm))
+#     displayPlots([im0/4 + filteredIm/4, filt, ndimage.convolve(im0, filt0)*100 + 50])
+#     exit()
 #     im0 = ndimage.gaussian_filter(im.copy(), sigma=2)
 #     blankIm = np.zeros((len(im0), len(im0[0])))
 
@@ -685,6 +756,7 @@ def filterImage( im0, fw):
     temp3 = toBinImg(temp2 - ndimage.convolve(temp2, f3)//2)
     final = toBinImg(temp3 - ((ndimage.convolve(temp3, f4)%4) + 1 )//4)
 #     ims = [ im0, local_maxi * 64, temp3*64, final*64 ]
+#     displayPlots(ims)
 #     displayPlots([(im > ndarray.mean(im) + ndarray.std(im))*64 + final * 128])
 #     return
     maxPoints = np.nonzero(final)
@@ -733,7 +805,6 @@ def cPythonStuff():
     im0 = np.array( Image.open("Images/smallTest2.jpg") )
     im0 = ndimage.gaussian_filter(im0.copy(), sigma=3)
     filterImage(im0, 10)
-    print("here")
     return
 
 #     x, y = np.indices((5, 5))

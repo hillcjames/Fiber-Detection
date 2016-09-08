@@ -5,6 +5,8 @@ Created on May 14, 2016
 '''
 import numpy as np
 from math import pi, sqrt, sin, cos
+from skimage.draw import line_aa
+from random import randint
 
 from lib.graph import Graph
 from lib.fiber import Fiber
@@ -75,7 +77,7 @@ class PointWeb(Graph):
                                 break
                         else:
                             break
-        
+            
         # you need two, since I broke small cycles in the init,
         # so what would have been
         #     1-{2}, 2-{1, 3, 4}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
@@ -287,7 +289,7 @@ class PointWeb(Graph):
             
             
             f = Fiber(chain0, self.fw)
-            if f.length > 4:
+            if f.length > 3:
                 tempFiberList.append(f)
         
         # this ensures duplicate fibers aren't saved
@@ -363,6 +365,26 @@ class PointWeb(Graph):
 #         print("\t--", aheadPoints[0][0].e, node.e)
         return aheadPoints[0][0]
     
+    def drawGraph(self, im = 0):
+        if im == 0:
+            im = self.im
+    #     for p in g:
+    #         g[p].visited = False
+        visited = {}
+        for p1 in self:
+            if p1 in visited:
+                continue
+            for nodeP in self[p1].links:
+                visited[nodeP.e] = True
+                p2 = nodeP.e
+                rr, cc = line_aa(*p1 + p2)[:2]
+                im[rr, cc] = 35  + randint(0, 40)
+        for p in self: 
+            self.im[p] = 168
+            
+        for p in self.ends:
+            self.im[p] = 255
+            
     def inLine(self, p0, p1, p2):
         t1 = getAngle(p0, p1)
         t2 = getAngle(p0, p2)

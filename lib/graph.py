@@ -12,6 +12,7 @@ class Graph(dict):
     
     def removeArc(self, angleList, angle, dist):
         # times 5 to lessen likelihood of cycles
+        #arcAngle is half of the angle to be removed
         arcAngle = 5 * atan( self.invSqrRt2 / dist )
         lBnd = angle - arcAngle
         rBnd = angle + arcAngle
@@ -19,7 +20,7 @@ class Graph(dict):
             lBnd += 2*pi
         if rBnd > 2*pi:
             rBnd -= 2*pi
-
+#         print("\t\t\t", (int)(lBnd*1000)/1000, (int)(rBnd*1000)/1000)
         for i in range(0, len(angleList)):
             if angleList[i] == -1:
                 continue
@@ -93,25 +94,30 @@ class Graph(dict):
         return True
     
     
+    def getradialCircleArray(self, maxR):
+        divs = int(maxR*2*pi)
+        radiusList = np.arange(1.0 , maxR, 0.5)
+        # each row in the matrix is a list of theta values, corresponding to a point
+        mat = np.zeros((len(radiusList), divs))
+        mat -= 1
+        
+        pointDict = {}
+        for iR in range(0, len(radiusList)):
+            r = radiusList[iR]
+            i = 0
+            for iT in range(0, divs):
+                t = 2*pi/divs * iT
+                p = (int((r * np.array([cos(t), sin(t)]))[0]), 
+                     int((r * np.array([cos(t), sin(t)]))[1]) )
+                if p not in pointDict:
+                    mat[(iR, i)] = t
+                    pointDict[p] = True
+                    i += 1
+        return radiusList, mat
+
+    
     def drawGraph(self, im = 0):
-        if im == 0:
-            im = self.im
-    #     for p in g:
-    #         g[p].visited = False
-        visited = {}
-        for p1 in self:
-            if p1 in visited:
-                continue
-            for nodeP in self[p1].links:
-                visited[nodeP.e] = True
-                p2 = nodeP.e
-                rr, cc = line_aa(*p1 + p2)[:2]
-                im[rr, cc] = 35  + randint(0, 40)
-        for p in self:
-            self.im[p] = 168
-            
-        for p in self.ends:
-            self.im[p] = 255
+        assert False, "Abstract parent function"
     
     def getNextPoint(self, node, prev, angleTol):
         ()

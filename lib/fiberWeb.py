@@ -5,6 +5,8 @@ Created on May 14, 2016
 '''
 import numpy as np
 from math import pi, cos, sin, sqrt
+from skimage.draw import line_aa
+from random import randint
 
 from lib.graph import Graph
 from lib.fiber import Fiber
@@ -15,8 +17,9 @@ class FiberWeb(Graph):
     
     def __init__(self, imForSize, fibers, maxDist, fiberW):
         
-        radiusList = np.arange(1.0 , maxDist, 0.4)
-        thetaList0 = np.arange(0 , 2*pi, pi/60)
+#         radiusList = np.arange(1.0 , maxDist, 0.5)
+#         thetaList0 = np.arange(0 , 2*pi, pi/480)
+        radiusList, thetaMatrix0 = self.getradialCircleArray(maxDist)
 
         for f in fibers:
             self[f] = Node(f)
@@ -35,10 +38,9 @@ class FiberWeb(Graph):
         
         tolerance = pi/8
         
+        
         i = 0
         for p0 in tempDict:
-            print(p0)
-            t0 = tempDict[p0].e.angle
 #             pAvg = (np.array(tempDict[p0].e.pnts[0]) + np.array(tempDict[p0].e.pnts[-1]))/2
 #             print(tempDict[p0].e.pnts[0], tempDict[p0].e.pnts[-1], pAvg)
 
@@ -47,13 +49,31 @@ class FiberWeb(Graph):
             print(i, len(tempDict), "building fiber graph")
             i+=1
             
-            thetaList = thetaList0.copy()
-            for t in thetaList:
-                if t == -1:
-                    continue
-                for r in radiusList:
+            # this records which points have already been processed, and so don't need to be again.
+            flagDict = {}
+            
+            thetaMatrix = thetaMatrix0.copy()
+#             for r in radiusList:
+# #                 for t in thetaList:
+#                 for i2 in range(0, len(thetaList), int(maxDist/r)):
+#                     t = thetaList[i2]
+#                     
+#                     if t == -1:
+#                         continue
+            for iR in range(0, len(thetaMatrix)):
+                r = radiusList[iR]
+                for iT in range(0, len(thetaMatrix[0])):
+                    t = thetaMatrix[iR][iT]
+                    if t == -2:
+                        break
+                    if t == -1:
+                        continue
                     p = (int(p0[0] + (r * np.array([cos(t), sin(t)]))[0]), 
                          int(p0[1] + (r * np.array([cos(t), sin(t)]))[1]) )
+                    if p in flagDict:
+                        continue
+                    # mark that this point doesn't need to be processed again
+                    flagDict[p] = True
                     # if the point is an endpoint to a fiber, but not of the fiber currently being examined
                     
 #                     if p in tempDict:
@@ -64,23 +84,58 @@ class FiberWeb(Graph):
 #                         print("\t", (int)(t*100)/100, r, p, p0)
                         if not (Node.linked(tempDict[p0], tempDict[p])):
 #                             print("\t\t", (int)(t*100)/100, r, p, p0)
-                            
 #                             if notCycle:
-
+                            notCycle = True
+                            for n2 in tempDict[p].links:
+                                # if the new point is connected to a node already linked to the current node
+                                # prevents cycles of order 3
+                                if Node.linked(tempDict[p0], n2):
+                                    notCycle = False
+                                    break
+                            
                             if (self.aligned(tempDict[p0].e, tempDict[p].e, pi/32)
-                                and getOrderedEndPoints(tempDict[p0].e, tempDict[p].e)[1] > tempDict[p0].e.length):
-#                                 print("\t\t\t", (int)(t*100)/100, r, p, f0)
+                                and getOrderedEndPoints(tempDict[p0].e, tempDict[p].e)[1] > tempDict[p0].e.length
+                                and notCycle):
                                 Node.link(tempDict[p0], tempDict[p])
-                                self.removeArc(thetaList, t, r)
+                                self.removeArc(thetaMatrix[iR], t, r)
+                                print("\t", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
+#                                 print(thetaList)
                                 break
                         else:
+                            self.removeArc(thetaMatrix[iR], t, r)
+                            print("\t**", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
+#                             print("**",thetaList)
                             break
 #         print()
 #         for f in self:
 #             print(str(f.pnts[0]) + " " + str(f.pnts[1]) + " " + str(self[f])[-7:] + "\t" + str(f)[-7:])
 #             for lnk in self[f].links: 
 #                 print("\t", lnk.e.pnts[0], lnk.e.pnts[-1], "\t", str(lnk)[-7:], "\t", str(lnk.e)[-7:] )
-
+    
+        for i, f in enumerate(self):
+            string = " --- "
+            if f in self.ends:
+                string = " END "
+            
+            string = str(i) + string
+            
+            string += "|" + self[f].e.getEndPointsStr() + "| "
+            for l in self[f].links:
+                string += " - (" + l.e.getEndPointsStr() + ")"
+            string += " -"
+            
+            print(string)
+    
+        self.drawGraph(links=False)
+        temp = self.im.copy()
+        self.drawGraph(links=True)
+        from main import displayPlots
+        try:
+            displayPlots([temp, self.im])
+        except Exception:
+            ()
+        exit()
+        
         # you need two, since I broke small cycles in the init,
         # so what would have been
         #     1-{2}, 2-{1, 3, 4}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
@@ -326,9 +381,6 @@ class FiberWeb(Graph):
 #                 self.ends.remove(self[p])
             if p in self.ends:
                 del self.ends[p]
-            if endList:
-                if p in endList:
-                    endList.remove(p)
             del self[p]
             
         for p in pToCut:
@@ -372,9 +424,65 @@ class FiberWeb(Graph):
         print("ahStr", aheadStr, aheadPoints[0])
         return aheadPoints[0][0]
 
+    
+    def drawGraph(self, im = 0, links = True):
+        from main import drawFibers
+        if im == 0:
+            im = self.im
+        
+        # draw all fibers
+        drawFibers(im, self, (140, 255))
+            
+        #draw end fibers
+        drawFibers(im, self.ends, (200, 255))
+        
+        if not links:
+            return
+        
+        # draw links
+        visited = {}
+        for f1 in self:
+            if f1 in visited:
+                continue
+            for nodeF in self[f1].links:
+                visited[nodeF.e] = True
+                f2 = nodeF.e
+                p1, p2 = getOrderedEndPoints(f1, f2)[-2:]
+                rr, cc = line_aa(*p1 + p2)[:2]
+                im[rr, cc] = 35  + randint(0, 40)
+                im[p1] = 255
+                im[p2] = 255
+            
+
     def inLine(self, f0, f1, f2):
+        # f1 is the center fiber
         tol = pi/8
         return self.aligned(f0, f1, tol) and self.aligned(f0, f2, tol)
+        '''
+        Check both ways; if either one fibers angle is similar to the angle made between its 
+            points and the avg point of the other, or vise versa. So to make it directionally
+            independent, between a large fiber and a skewed segment.
+        Or
+        Check if the angles between the center's avg and the others ends are all similar
+        and then check if ...? Do I need to check anything else?
+        I could check, with extra pain and spaghetti, whether those angles match with the average
+        so far, but I happen to not like pain, especially with spaghetti on the side.. 
+        '''
+        
+        p01, p02 = f0.getEndPoints()
+        p21, p22 = f2.getEndPoints()
+        
+        t01 = getAngle(f1.pAvg, p01)
+        t02 = getAngle(f1.pAvg, p02)
+        
+        t21 = getAngle(f1.pAvg, p21)
+        t22 = getAngle(f1.pAvg, p22)
+        
+        aligned = ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol))
+        
+        return ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol))
+    
+        
     
     def aligned(self, f0, f1, tol):
         
@@ -382,8 +490,8 @@ class FiberWeb(Graph):
         
         t1 = getAngle(f0.pAvg, p1)
         t2 = getAngle(f0.pAvg, p2)
-        if ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol)):
-            print(p1, p2, f0.pAvg, getAngleDiff(f0.angle, t1), getAngleDiff(f0.angle, t2), tol)
+#         if ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol)):
+#             print(p1, p2, f0.pAvg, getAngleDiff(f0.angle, t1), getAngleDiff(f0.angle, t2), tol)
         return ((abs(getAngleDiff(f0.angle, t1)) <= tol) and (abs(getAngleDiff(f0.angle, t2)) <= tol))
     
     @staticmethod
