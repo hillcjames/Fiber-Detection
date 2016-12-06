@@ -7,6 +7,7 @@ import numpy as np
 from math import pi, cos, sin, sqrt
 from skimage.draw import line_aa
 from random import randint
+from scipy import spatial
 
 from lib.graph import Graph
 from lib.fiber import Fiber
@@ -15,8 +16,310 @@ from lib.helperFuncs import getAngle, sqrDist, getAngleDiff, getOrderedEndPoints
 
 class FiberWeb(Graph):
     
-    def __init__(self, imForSize, fibers, maxDist, fiberW):
+    '''
+    TODO !!!!
+    Simplify the graph by dividing all the points by 10 or 15 or something, and then use those
+    smaller values to add things to the dictionary and perform the search.
+    This will lose the difference between nodes within 10/15 pixels of each other. 
+    Actually run the search on each node once on the actual data, from 0-10 or 15, and then run it
+    again on the rounded data? Still loses data if any points are nearby to each other but not to the starting node
+    Or not
+    Also, add this somewhere
+    gc.collect()
+    '''
+    
+    
+    def __init2__(self, imForSize, fibers, maxDist, fiberW):
+        '''
+        This orders points by x-coord, and then checks all points within maxDist of a point
+        in the x-direction to see which of them are within maxDist in the y direction.
+        These points are then narrowed down by a sqrDist calculation.
+        '''
+
+        for f in fibers:
+            self[f] = Node(f)
+            
+        self.im = np.zeros((len(imForSize), len(imForSize[0])))
+        self.fw = fiberW
+        self.ends = {}
+        self.invSqrRt2 = 1/sqrt(2)
         
+        tempDict = {}
+        for f in self:
+            print(f.pnts[0], f.pnts[-1])
+            n = self[f]
+            tempDict[f.pnts[0]] = n
+            tempDict[f.pnts[-1]] = n
+        
+        tolerance = pi/8
+        
+        dtype = [('x', int), ('y', int)]
+        
+        tempList = list(tempDict)
+        
+        pointList = np.sort(np.array(tempList, dtype), order='x')
+        
+        
+        # Sort a list of all points
+        
+#         i = 0
+        for i, p0 in enumerate(pointList):
+#             pAvg = (np.array(tempDict[p0].e.pnts[0]) + np.array(tempDict[p0].e.pnts[-1]))/2
+#             print(tempDict[p0].e.pnts[0], tempDict[p0].e.pnts[-1], pAvg)
+
+            if i%100 == 0:
+                print(i, len(fibers), "building fiber graph")
+#             print(i, len(tempDict), "building fiber graph")
+#             i+=1
+            xLowBnd = int(p0[0] - maxDist)
+            xHighBnd = int(p0[0] + maxDist)
+            yLowBnd = int(p0[1] - maxDist)
+            yHighBnd = int(p0[1] + maxDist)
+            
+            # this is an index
+            lBnd = i
+            while lBnd > 0 and pointList[lBnd - 1][0] >= xLowBnd:
+                lBnd -= 1
+                
+#             lPnt = pointList[lBnd]
+            
+            rBnd = i
+            while rBnd < len(pointList) - 2 and pointList[rBnd + 1][0] <= xHighBnd:
+                rBnd += 1
+                
+#             rPnt = pointList[rBnd]
+            
+            for iX in range(lBnd, rBnd + 1):
+
+                p = tuple(pointList[iX])
+                if (yLowBnd < p[1] < yHighBnd):
+                    p0 = tuple(p0)
+                    if (i != iX) and (sqrDist(p, p0) <= maxDist**2) and (tempDict[p0] != tempDict[p]):
+                         
+#                     if (p in tempDict) and (p != tempDict[p0].e.pnts[0]) and (p != tempDict[p0].e.pnts[1]):
+                        
+#                         print("\t", (int)(t*100)/100, r, p, p0)
+                        if not (Node.linked(tempDict[p0], tempDict[p])):
+#                             print("\t\t", (int)(t*100)/100, r, p, p0)
+#                             if notCycle:
+                            notCycle = True
+                            for n2 in tempDict[p].links:
+                                # if the new point is connected to a node already linked to the current node
+                                # prevents cycles of order 3
+                                if Node.linked(tempDict[p0], n2):
+                                    notCycle = False
+                                    break
+                            
+                            if (self.aligned(tempDict[p0].e, tempDict[p].e, pi/32)
+                                and getOrderedEndPoints(tempDict[p0].e, tempDict[p].e)[1] > tempDict[p0].e.length
+                                and notCycle):
+                                Node.link(tempDict[p0], tempDict[p])
+#                                 self.removeArc(thetaMatrix[iR], t, r)
+#                                 print("\t", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
+#                                 print(thetaList)
+                                break
+                        else:
+#                             self.removeArc(thetaMatrix[iR], t, r)
+#                             print("\t**", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
+#                             print("**",thetaList)
+                            break
+#         print()
+#         for f in self:
+#             print(str(f.pnts[0]) + " " + str(f.pnts[1]) + " " + str(self[f])[-7:] + "\t" + str(f)[-7:])
+#             for lnk in self[f].links: 
+#                 print("\t", lnk.e.pnts[0], lnk.e.pnts[-1], "\t", str(lnk)[-7:], "\t", str(lnk.e)[-7:] )
+    
+        for i, f in enumerate(self):
+            string = " --- "
+            if f in self.ends:
+                string = " END "
+            
+            string = str(i) + string
+            
+            string += "|" + self[f].e.getEndPointsStr() + "| "
+            for l in self[f].links:
+                string += " - (" + l.e.getEndPointsStr() + ")"
+            string += " -"
+            
+            print(string)
+    
+        self.drawGraph(links=False)
+        temp = self.im.copy()
+        self.drawGraph(links=True)
+        from main import displayPlots
+        try:
+            displayPlots([temp, self.im])
+        except Exception:
+            ()
+        exit()
+        
+        # you need two, since I broke small cycles in the init,
+        # so what would have been
+        #     1-{2}, 2-{1, 3, 4}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
+        # is now
+        #     1-{2}, 2-{1, 3}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
+        # which yields after the first prune
+        #     1-{2}, 2-{1, 3}, 3-{2, 4}, 4-{3, 5}, 5-{4)
+        # which yields
+        #     1-{2}, 2-{1, 3}, 3-{2, 4}, 4-{3, 5}, 5-{4), then
+        #     1-{2}, 2-{1, 3}, 4-{2, 5}, 5-{4), then
+        #     1-{5}, 5-{1)
+        print("About to prune")
+        self.prune()
+        print("About to prune again")
+        self.prune()
+        print("...Done with prunes")
+        
+        self.getEndpoints()
+    
+    def __init__(self, imForSize, fibers, maxDist, fiberW):
+        '''
+        This uses a PR-Quadtree to request points in a region.
+        '''
+
+        for f in fibers:
+            self[f] = Node(f)
+            
+        self.im = np.zeros((len(imForSize), len(imForSize[0])))
+        self.fw = fiberW
+        self.ends = {}
+        self.invSqrRt2 = 1/sqrt(2)
+        
+        thetaList0 = np.arange(0 , 2*pi, pi/300)
+
+        tempDict = {}
+        for f in self:
+            print(f.pnts[0], f.pnts[-1])
+            n = self[f]
+            tempDict[f.pnts[0]] = n
+            tempDict[f.pnts[-1]] = n
+        
+        
+        pointList = np.array(list(tempDict))
+        
+        KDT = spatial.KDTree(pointList)
+
+        
+        # Sort a list of all points
+        
+#         i = 0
+        for i, p0Np in enumerate(pointList):
+            thetaList = thetaList0.copy()
+            p0 = tuple(p0Np)
+            
+            
+            if i%100 == 0:
+                print(i, len(fibers), "building fiber graph")
+#             print(i, len(tempDict), "building fiber graph")
+            
+            
+            nearby = np.array(KDT.query_ball_point(p0, maxDist))
+            nearArr = pointList[nearby] 
+            
+            distList = spatial.distance.cdist(np.array([p0]), nearArr)[0]
+            nearPoints = nearArr[np.argsort(distList)]
+            
+            distList = np.sort(distList)
+#             for iTemp, temp in enumerate(nearPoints):
+#                 temp.append(distList[iTemp])
+            
+#             print(type(nearArr), type(nearArr[0]), type(p0Np))
+#             
+            for i2 in range(len(nearPoints)):
+                pNp = nearPoints[i2]
+                r = distList[i2]
+                t = getAngle(p0, pNp)
+                if t == -2:
+                    break
+#             for pIdx in nearPoints:
+#                 p = pointList[pIdx]
+                p = tuple(pNp)
+#                 if p == 
+                if (p != p0):
+                    if tempDict[p0] != tempDict[p]:
+                    
+#                     if (p in tempDict) and (p != tempDict[p0].e.pnts[0]) and (p != tempDict[p0].e.pnts[1]):
+                        
+#                         print("\t", (int)(t*100)/100, r, p, p0)
+                        if not (Node.linked(tempDict[p0], tempDict[p])):
+#                             print("\t\t", (int)(t*100)/100, r, p, p0)
+#                             if notCycle:
+                            notCycle = True
+                            for n2 in tempDict[p].links:
+                                # if the new point is connected to a node already linked to the current node
+                                # prevents cycles of order 3
+                                if Node.linked(tempDict[p0], n2):
+                                    notCycle = False
+                                    break
+                            
+                            if (self.aligned(tempDict[p0].e, tempDict[p].e, pi/32)
+                                and getOrderedEndPoints(tempDict[p0].e, tempDict[p].e)[1] > tempDict[p0].e.length
+                                and notCycle):
+                                Node.link(tempDict[p0], tempDict[p])
+                                self.removeArc(thetaList, t, r)
+#                                 print("\t", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
+#                                 print(thetaList)
+                                break
+                        else:
+#                             self.removeArc(thetaMatrix[iR], t, r)
+#                             print("\t**", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
+#                             print("**",thetaList)
+                            break
+#         print()
+#         for f in self:
+#             print(str(f.pnts[0]) + " " + str(f.pnts[1]) + " " + str(self[f])[-7:] + "\t" + str(f)[-7:])
+#             for lnk in self[f].links: 
+#                 print("\t", lnk.e.pnts[0], lnk.e.pnts[-1], "\t", str(lnk)[-7:], "\t", str(lnk.e)[-7:] )
+    
+        for i, f in enumerate(self):
+            string = " --- "
+            if f in self.ends:
+                string = " END "
+            
+            string = str(i) + string
+            
+            string += "|" + self[f].e.getEndPointsStr() + "| "
+            for l in self[f].links:
+                string += " - (" + l.e.getEndPointsStr() + ")"
+            string += " -"
+            
+            print(string)
+    
+        self.drawGraph(links=False)
+        temp = self.im.copy()
+        self.drawGraph(links=True)
+        from main import displayPlots
+        try:
+            displayPlots([temp, self.im])
+        except Exception:
+            ()
+        exit()
+        
+        # you need two, since I broke small cycles in the init,
+        # so what would have been
+        #     1-{2}, 2-{1, 3, 4}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
+        # is now
+        #     1-{2}, 2-{1, 3}, 3-{2, 4}, 4-{2, 3, 5}, 5-{4)
+        # which yields after the first prune
+        #     1-{2}, 2-{1, 3}, 3-{2, 4}, 4-{3, 5}, 5-{4)
+        # which yields
+        #     1-{2}, 2-{1, 3}, 3-{2, 4}, 4-{3, 5}, 5-{4), then
+        #     1-{2}, 2-{1, 3}, 4-{2, 5}, 5-{4), then
+        #     1-{5}, 5-{1)
+        print("About to prune")
+        self.prune()
+        print("About to prune again")
+        self.prune()
+        print("...Done with prunes")
+        
+        self.getEndpoints()
+    
+    def __initRadial__(self, imForSize, fibers, maxDist, fiberW):
+        '''
+        This checks all points within a radius from each point
+        Is technically linear, but has a very high constant cost:
+            -makes ~60,000 dictionary calls each iteration.
+        '''
 #         radiusList = np.arange(1.0 , maxDist, 0.5)
 #         thetaList0 = np.arange(0 , 2*pi, pi/480)
         radiusList, thetaMatrix0 = self.getradialCircleArray(maxDist)
@@ -38,28 +341,27 @@ class FiberWeb(Graph):
         
         tolerance = pi/8
         
+        pointList = list(tempDict)
         
-        i = 0
-        for p0 in tempDict:
+        
+        # Sort a list of all points
+        
+#         i = 0
+        for i, p0 in enumerate(pointList):
 #             pAvg = (np.array(tempDict[p0].e.pnts[0]) + np.array(tempDict[p0].e.pnts[-1]))/2
 #             print(tempDict[p0].e.pnts[0], tempDict[p0].e.pnts[-1], pAvg)
 
-#             if i%100 == 0:
-#                 print(i, len(fibers), "building fiber graph")
-            print(i, len(tempDict), "building fiber graph")
-            i+=1
-            
+            if i%100 == 0:
+                print(i, len(fibers), "building fiber graph")
+#             print(i, len(tempDict), "building fiber graph")
+#             i+=1
+                
+# START            
             # this records which points have already been processed, and so don't need to be again.
             flagDict = {}
             
             thetaMatrix = thetaMatrix0.copy()
-#             for r in radiusList:
-# #                 for t in thetaList:
-#                 for i2 in range(0, len(thetaList), int(maxDist/r)):
-#                     t = thetaList[i2]
-#                     
-#                     if t == -1:
-#                         continue
+            
             for iR in range(0, len(thetaMatrix)):
                 r = radiusList[iR]
                 for iT in range(0, len(thetaMatrix[0])):
@@ -68,8 +370,8 @@ class FiberWeb(Graph):
                         break
                     if t == -1:
                         continue
-                    p = (int(p0[0] + (r * np.array([cos(t), sin(t)]))[0]), 
-                         int(p0[1] + (r * np.array([cos(t), sin(t)]))[1]) )
+                    p = (p0[0] + int(r * np.array([cos(t), sin(t)])[0]), 
+                         p0[1] + int(r * np.array([cos(t), sin(t)])[1]) )
                     if p in flagDict:
                         continue
                     # mark that this point doesn't need to be processed again
@@ -78,7 +380,8 @@ class FiberWeb(Graph):
                     
 #                     if p in tempDict:
 #                         print((int)(t*100)/100, r, p, p0, (p in tempDict), (p != tempDict[p0].pnts[0]), (p != tempDict[p0].pnts[1]))
-                        
+# END
+
                     if (p in tempDict) and (p != tempDict[p0].e.pnts[0]) and (p != tempDict[p0].e.pnts[1]):
                         
 #                         print("\t", (int)(t*100)/100, r, p, p0)
@@ -97,12 +400,12 @@ class FiberWeb(Graph):
                                 and getOrderedEndPoints(tempDict[p0].e, tempDict[p].e)[1] > tempDict[p0].e.length
                                 and notCycle):
                                 Node.link(tempDict[p0], tempDict[p])
-                                self.removeArc(thetaMatrix[iR], t, r)
+                                self.removeArcMatrix(thetaMatrix, t, r)
                                 print("\t", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
 #                                 print(thetaList)
                                 break
                         else:
-                            self.removeArc(thetaMatrix[iR], t, r)
+#                             self.removeArc(thetaMatrix[iR], t, r)
                             print("\t**", (int)(t*1000)/1000, r, p0, p, "-", tempDict[p0].e.getEndPointsStr(), "-", tempDict[p].e.getEndPointsStr(), "-")
 #                             print("**",thetaList)
                             break

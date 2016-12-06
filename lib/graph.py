@@ -21,13 +21,45 @@ class Graph(dict):
         if rBnd > 2*pi:
             rBnd -= 2*pi
 #         print("\t\t\t", (int)(lBnd*1000)/1000, (int)(rBnd*1000)/1000)
-        for i in range(0, len(angleList)):
-            if angleList[i] == -1:
-                continue
-            if angleList[i] > lBnd and angleList[i] < lBnd + 2 * arcAngle:
-                angleList[i] = -1
-            elif angleList[i] < rBnd and angleList[i] > rBnd - 2 * arcAngle:
-                angleList[i] = -1
+
+        if type(angleList) == dict:
+            for e in angleList:
+                if angleList[e] == -1:
+                    continue
+                if angleList[e] > lBnd and angleList[e] < lBnd + 2 * arcAngle:
+                    angleList[e] = -1
+                elif angleList[e] < rBnd and angleList[e] > rBnd - 2 * arcAngle:
+                    angleList[e] = -1
+        else:
+            for i in range(0, len(angleList)):
+                if angleList[i] == -1:
+                    continue
+                if angleList[i] > lBnd and angleList[i] < lBnd + 2 * arcAngle:
+                    angleList[i] = -1
+                elif angleList[i] < rBnd and angleList[i] > rBnd - 2 * arcAngle:
+                    angleList[i] = -1
+        
+    
+    
+    def removeArcMatrix(self, angleMatrix, angle, dist):
+        # times 5 to lessen likelihood of cycles
+        #arcAngle is half of the angle to be removed
+        arcAngle = 2 * atan( self.invSqrRt2 / dist )
+        lBnd = angle - arcAngle
+        rBnd = angle + arcAngle
+        if lBnd < 0:
+            lBnd += 2*pi
+        if rBnd > 2*pi:
+            rBnd -= 2*pi
+#         print("\t\t\t", (int)(lBnd*1000)/1000, (int)(rBnd*1000)/1000)
+        for i1 in range(int(dist), len(angleMatrix)):
+            for i2 in range(0, len(angleMatrix[i1])):
+                if angleMatrix[i1][i2] == -1:
+                    continue
+                if angleMatrix[i1][i2] > lBnd and angleMatrix[i1][i2] < lBnd + 2 * arcAngle:
+                    angleMatrix[i1][i2] = -1
+                elif angleMatrix[i1][i2] < rBnd and angleMatrix[i1][i2] > rBnd - 2 * arcAngle:
+                    angleMatrix[i1][i2] = -1
             
     
     @staticmethod
@@ -93,8 +125,8 @@ class Graph(dict):
     def shouldRemove(self, node):
         return True
     
-    
-    def getradialCircleArray(self, maxR):
+    @staticmethod
+    def getradialCircleArray(maxR):
         divs = int(maxR*2*pi)
         radiusList = np.arange(1.0 , maxR, 0.5)
         # each row in the matrix is a list of theta values, corresponding to a point

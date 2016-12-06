@@ -43,6 +43,7 @@ import math
 import datetime
 import random
 from PIL import Image, ImageDraw
+import resource
 
 from numpy.core.numeric import ndarray
  
@@ -352,32 +353,37 @@ def getFilteredPixVal(im, x0, y0, flt):
     return sum
 #     except ZeroDivisionError:
 #         return 0
-                
+
 def mergeIms( im1, im2 ):
+    '''
+    THIS REPLACES im1 WITH OUTPUT
+    '''
     if len(im1) != len(im2) or len(im1[0]) != len(im2[0]):
         raise ValueError('Dimension mismatch')
     
-    tempIm = ndarray((len(im1), len(im1[0])))
-
-    for x in range(0, len(tempIm[0])):
-        for y in range(0, len(tempIm)):
-            tempIm[y][x] = im1[y][x] if (im1[y][x] > im2[y][x]) else im2[y][x]
+    for x in range(0, len(im1[0])):
+        for y in range(0, len(im1)):
+            if (im1[y][x] < im2[y][x]):
+                im1[y][x] =  im2[y][x]
     
-    return tempIm
+    return im1
          
 def pickyConvolvement( im, f1, f2 ):
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
 #     return im
-    
+    print("    Apply vertical filter...")
     im1 = ndimage.convolve(im, f1)
-    im2 = ndimage.convolve(im, f2)
-    
-    tempIm = mergeIms(im1, im2)
-    
-    return tempIm
-#     return 255 * tempIm / tempIm.max()
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+    print("    Apply horizontal filter...")
+    im = ndimage.convolve(im, f2)
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+    print("    Merge results...")
+    return np.maximum.reduce([im1, im])
+#     tempIm = mergeIms(im1, im2)
+#     return tempIm
 
 def toBinImg( im, thresh=1 ):
-    temp = im.copy()
+    temp = im#.copy()
     ind = im < thresh
     ind0 = im >= thresh
     temp[ind] = 0
@@ -643,7 +649,7 @@ def drawFibers(im, fibers, col = (55, 255)):
         im[p1] = col[1]
         im[p2] = col[1]
 
-def tempGraphStuff(im0, distanceIm, l, fw):
+def tempGraphStuff(distanceIm, l, fw):
 #     fw = 2
 #     l = [(4, 4), (5, 5), (13, 5), (5, 15), (15, 15), (10, 10), (20, 20), (5, 28)]
 #     l = [(4, 4), (6, 4), (6, 5), (3, 2), (8, 5), (9, 7)]
@@ -712,6 +718,7 @@ def tempGraphStuff(im0, distanceIm, l, fw):
 
 
 def filterImage( im0, fw):
+    print("Applying filters to find center-lines...")
 #     filt0 = circleIntersectFilter(15)
 #     filt = filt0 - ndarray.min(filt0)
 #     filt = filt*(200/ndarray.max(filt)) + 50
@@ -726,20 +733,33 @@ def filterImage( im0, fw):
 
     fH = 5 * horizEdgeArray(fw, 1)
     fV = 5 * vertEdgeArray(fw, 1)
-     
-    res0 = pickyConvolvement(im0.astype(int), fH, fV)
-    res0[res0 < 0] = 0
-    res0[res0 > 255] = 255
-    res1 = 256*toBinImg(res0, 120)
-     
-    im = toBinImg(res1, 200)
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
     
-    distance = ndimage.distance_transform_edt(im)
+#     im0 = im0.astype(int)
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
     
-    local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((3, 3)), labels=im)
+    print("Performing picky convolvement...") 
+    res0 = pickyConvolvement(im0, fH, fV)
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+#     displayPlots([res0[0] - res0[1], res0[1] - res0[0]])
+#     exit()
+
+    res0[res0 < 120] = 0
+    res0[res0 >= 120] = 255
+
+#     displayPlots([255*(res1 - res3)])
+#     exit()
+    print("Performing distance transform...")
+#     distance = ndimage.distance_transform_edt(im)
+
+    res0 = res0.astype(np.float64)
+    print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1000)
+    
+    print("Finding local maximums...")
+    local_maxi = peak_local_max(ndimage.distance_transform_edt(res0), indices=False, footprint=np.ones((3, 3)), labels=res0)
     
     #remove all L-shapes
-    f0 = np.zeros((3,3))
+    f0 = np.zeros((3,3)) 
     f0[0][0] = 1
     f0[2][0] = 1
     f0[1][2] = 1
@@ -751,20 +771,26 @@ def filterImage( im0, fw):
     f4[1] *= 2
 
     temp0 = toBinImg(local_maxi - ndimage.convolve(local_maxi, f0)//2)
-    temp1 = toBinImg(temp0 - ndimage.convolve(temp0, f1)//2)
-    temp2 = toBinImg(temp1 - ndimage.convolve(temp1, f2)//2)
-    temp3 = toBinImg(temp2 - ndimage.convolve(temp2, f3)//2)
-    final = toBinImg(temp3 - ((ndimage.convolve(temp3, f4)%4) + 1 )//4)
+    temp0 = toBinImg(temp0 - ndimage.convolve(temp0, f1)//2)
+    temp0 = toBinImg(temp0 - ndimage.convolve(temp0, f2)//2)
+    temp0 = toBinImg(temp0 - ndimage.convolve(temp0, f3)//2)
+    temp0 = toBinImg(temp0 - ((ndimage.convolve(temp0, f4)%4) + 1 )//4)
+#     temp0 = toBinImg(local_maxi - ndimage.convolve(local_maxi, f0)//2)
+#     temp1 = toBinImg(temp0 - ndimage.convolve(temp0, f1)//2)
+#     temp2 = toBinImg(temp1 - ndimage.convolve(temp1, f2)//2)
+#     temp3 = toBinImg(temp2 - ndimage.convolve(temp2, f3)//2)
+#     final = toBinImg(temp3 - ((ndimage.convolve(temp3, f4)%4) + 1 )//4)
 #     ims = [ im0, local_maxi * 64, temp3*64, final*64 ]
 #     displayPlots(ims)
 #     displayPlots([(im > ndarray.mean(im) + ndarray.std(im))*64 + final * 128])
 #     return
-    maxPoints = np.nonzero(final)
+    maxPoints = np.nonzero(temp0)
      
     maxPoints = list(zip(maxPoints[0], maxPoints[1]))
     
-    tempGraphStuff(im0, final, maxPoints, fw)
-    return final
+    tempGraphStuff(temp0, maxPoints, fw)
+#     tempGraphStuff(im0, final, maxPoints, fw)
+    return temp0
 
 def drawLine(im, p1, p2):
     a = (p2[1] - p1[1])/(p1[0]*p2[1] - p2[0]*p1[1] - 0.1)
@@ -782,87 +808,37 @@ def drawLine(im, p1, p2):
             im[(int(y), int(x))] = 255
 
 def cPythonStuff():
+    import os
+    os.chdir("/home/james/workspace python/fiberLength")
 #     call(["python3", "setup.py", "build_ext", "--inplace"])
 #     im0 = fiberBox((20, 20), (10, 10), 3*pi/4, 5)
 #     im0 = fiberBox((40, 20), (10, 15), 4*pi/7, 5)
 #     im0 = mergeIms( fiberBox((400, 200), (100, 150), 4*pi/7, 10), fiberBox((400, 200), (300, 150), 3*pi/9, 10) )
 
 
-    im0 = mergeIms( fiberBox((40*5, 20*5), (10*5, 15*5), 4*pi/7, 5), fiberBox((40*5, 20*5), (30*5, 15*5), 8*pi/7, 5) )
-    im1 = mergeIms( fiberBox((40*5, 20*5), (30*5, 15*5), 2*pi/7, 5), fiberBox((40*5, 20*5), (20*5, 15*5), 7*pi/9, 5) )
-    im2 = mergeIms( fiberBox((40*5, 20*5), (0, 8*5), 1.2*pi/7, 5), fiberBox((40*5, 20*5), (35*5, 0), 2*pi/9, 5) )
-    im3 = mergeIms( fiberBox((40*5, 20*5), (0, 8*5), 3*pi/7, 5), fiberBox((40*5, 20*5), (2*5, 100), -1*pi/9, 5) )
+#     im0 = mergeIms( fiberBox((40*5, 20*5), (10*5, 15*5), 4*pi/7, 5), fiberBox((40*5, 20*5), (30*5, 15*5), 8*pi/7, 5) )
+#     im1 = mergeIms( fiberBox((40*5, 20*5), (30*5, 15*5), 2*pi/7, 5), fiberBox((40*5, 20*5), (20*5, 15*5), 7*pi/9, 5) )
+#     im2 = mergeIms( fiberBox((40*5, 20*5), (0, 8*5), 1.2*pi/7, 5), fiberBox((40*5, 20*5), (35*5, 0), 2*pi/9, 5) )
+#     im3 = mergeIms( fiberBox((40*5, 20*5), (0, 8*5), 3*pi/7, 5), fiberBox((40*5, 20*5), (2*5, 100), -1*pi/9, 5) )
 #     displayPlots([im2])
 #     exit()
-    im5 = mergeIms(im0, im1)
-    im6 = mergeIms(im2, im3)
-    im0 = mergeIms(im5, im6)
+#     im5 = mergeIms(im0, im1)
+#     im6 = mergeIms(im2, im3)
+#     im0 = mergeIms(im5, im6)
 #     displayPlots([im0])
 #     exit()
 #     filterImage(im0, 5)
 #     return
 
-    im0 = np.array( Image.open("Images/smallTest2.jpg") )
-    im0 = ndimage.gaussian_filter(im0.copy(), sigma=3)
+#     im0 = np.array( Image.open("Images/smallTest2.jpg") )
+#     im0 = np.array( Image.open("Images/midSizedTest.jpg") )
+    im0 = np.array( Image.open("Images/largeTest.jpg") )
+    print("preparing image...")
+    im0 = ndimage.gaussian_filter(im0, sigma=3)
+    
     filterImage(im0, 10)
     return
 
-#     x, y = np.indices((5, 5))
-#     x1, y1, = 2, 2
-#     r1 = 1.2
-#     mask_circle = (x - x1) ** 2 + (y - y1) ** 2 < r1 ** 2
-#     print(mask_circle)
-#     local_maxi = peak_local_max(distance, indices=False, footprint=mask_circle, labels=im)
-    
-#     im1 = toBinImg(distance.copy(), 2)
-
-#     findFibersWeb(im)
-    
-    
-#     l = [im0, 255*im, 255*(distance/ndarray.max(distance)), 255*(im1/ndarray.max(im1))]
-#     displayPlots(l[1::2])
-#     displayPlots([im0])
-#     pyplot.imshow(255*out1)
-#     show()
-    
-#     print(out)
-    return
-    
-    
-#     im1 = mergeIms(fiberBox(dimensions, (40, 80), 7*pi/8, 10), fiberBox(dimensions, (180, 130), pi/4, 10))
-#     im2 = mergeIms(fiberBox(dimensions, (150, 70), 0*pi/8, 10), fiberBox(dimensions, (20, 180), 5*pi/8, 10))
-#     im3 = mergeIms(im1, fiberBox(dimensions, (150, 70), 4*pi/8, 10))
-#     im = mergeIms(im2, im3)
-#     temp = np.zeros(5)
-#     temp[1] = 1
-#     temp[2] = 2
-#     temp[3] = 1
-#     indx = temp >= 1 
-#     print(temp, ndarray.sum(indx))
-#     raise Exception("\nsome way to determine if, when a threshhold is applied to a given square \
-# as it is examined,\n the resulting boolean matrix is close enough to what it \
-# should be.")
-#     
-#     return
-
-    im = np.array( Image.open("Images/smallTest2.jpg") )
-    im0 = im.copy()
-
-    im = ndimage.gaussian_filter(im.copy(), sigma=2)
-    
-    
-    fw = 10
-    fH = 5 * horizEdgeArray(fw, 1)
-    fV = 5 * vertEdgeArray(fw, 1)
-    
-    res0 = pickyConvolvement(im.astype(int), fH, fV)
-    res0[res0 < 0] = 0
-    res0[res0 > 255] = 255
-    res0 = 256*toBinImg(res0, 120)
-    res1 = ndimage.median_filter(res0, size=8)
-#     findFibersWeb()
-    displayPlots([res0, res1])
-    return
     
       
 #     sx = ndimage.sobel(im, axis=0, mode='constant')
@@ -905,6 +881,7 @@ Then create a network of connected white spots.
 
 
 if __name__ == "__main__":
+
 #     import cProfile
 #     cProfile.run('cPythonStuff()')
     cPythonStuff()

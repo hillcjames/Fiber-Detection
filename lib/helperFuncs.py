@@ -13,8 +13,8 @@ def intTup( t ):
     return (int(t[0]), int(t[1]))
 
 
-def getAngle(p1, p2):
-    return atan((p2[1] - p1[1])/(p2[0] - p1[0]+0.1))
+def getAngle(p0, p2):
+    return atan((p2[1] - p0[1])/(p2[0] - p0[0]+0.1))
 
 def getOrderedEndPoints(f1, f2):
     # this returns 2 distances and 4 points, in order: 
