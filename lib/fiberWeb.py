@@ -143,15 +143,15 @@ class FiberWeb(Graph):
             
             print(string)
     
-        self.drawGraph(links=False)
-        temp = self.im.copy()
-        self.drawGraph(links=True)
-        from main import displayPlots
-        try:
-            displayPlots([temp, self.im])
-        except Exception:
-            ()
-        exit()
+#         self.drawGraph(links=False)
+#         temp = self.im.copy()
+#         self.drawGraph(links=True)
+#         from main import displayPlots
+#         try:
+#             displayPlots([temp, self.im])
+#         except Exception:
+#             ()
+#         exit()
         
         # you need two, since I broke small cycles in the init,
         # so what would have been
@@ -285,6 +285,11 @@ class FiberWeb(Graph):
             
             print(string)
     
+        '''
+        This is here because the fiber graph-creation algorithm
+        gets stuck in a loop in some images, and I haven't yet figured out why.
+        
+        '''
         self.drawGraph(links=False)
         temp = self.im.copy()
         self.drawGraph(links=True)

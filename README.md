@@ -1,5 +1,12 @@
 # Fiber-Detection
-Automatically detects straight fibers in a greyscale image, even with moderate noise and overlaps.
+Christopher Hill
+hill.c.james@gmail.com
+
+Note: 	This currently does not work for images with many bundled or overlapping fibers. It can handle a few though. 
+		It is also quite slow.
+
+Purpose:
+Will Automatically detect straight fibers in a greyscale image, even with moderate noise and overlaps.
 
 This program uses a filter to find points in the input image which are likely to be centered on a fiber,
 and creates a distance matrix of the distance from each pixel to the closest of those points.
@@ -11,9 +18,9 @@ Starting at each endpoint, the links of each node are traced in the most straigh
 
 The filtering process is quite fast, using C libraries.
 
-The first graph-creation is relatively fast. Is O(n).
+The first graph-creation is relatively fast, and is O(n).
 
-The second graph-creation is relatively slow, but bearable even with large images. Is O(n*log(n)).
+The second graph-creation is relatively slow. Is O(n*log(n)).
 
 
 Current issues:
@@ -24,6 +31,7 @@ Current issues:
 	Or supplement the existing filter with another one which only detects intersections.
 
 -Memory requirements; processing full images (~20,000x20,000 pixels) takes more than the 12GB of RAM I have available.
+	Figure out how to force python to release memory (if that's possible), and make code more efficient.
 
 
 
